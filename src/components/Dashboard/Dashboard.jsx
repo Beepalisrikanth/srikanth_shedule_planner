@@ -7,6 +7,7 @@ export default function Dashboard() {
 
   const [selectedDate, setSelectedDate] = useState(currentDateStr);
   const [isToday, setIsToday] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const day = new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long" });
 
@@ -61,6 +62,7 @@ export default function Dashboard() {
   const [existingRecord, setExistingRecord] = useState(null);
 
   const fetchData = async (dateToFetch) => {
+    setLoading(true);
     try {
       const res = await fetch(
         `https://sheetdb.io/api/v1/nipv43e33g4tr/search?date=${encodeURIComponent(dateToFetch)}`
@@ -71,36 +73,45 @@ export default function Dashboard() {
         const row = data[0];
         setExistingRecord(row);
 
-        // Parse JSON fields - using correct column names
+        // === CORRECT COLUMN NAMES (with underscore) ===
         let parsedDayStatus = daySchedule.map(() => false);
+        if (row.day_schedule) {
+          try {
+            const ds = JSON.parse(row.day_schedule);
+            if (Array.isArray(ds)) {
+              parsedDayStatus = ds.map(item => !!item);
+            }
+          } catch (e) {
+            console.warn("Failed to parse day_schedule", e);
+          }
+        }
+
         let parsedDailyStatus = dailyTasks.map(() => [false, false, false, false, false]);
+        if (row.daily_tasks) {
+          try {
+            const dt = JSON.parse(row.daily_tasks);
+            if (Array.isArray(dt)) {
+              parsedDailyStatus = dt.map(taskLevels =>
+                Array.isArray(taskLevels)
+                  ? taskLevels.map(level => !!level)
+                  : [false, false, false, false, false]
+              );
+            }
+          } catch (e) {
+            console.warn("Failed to parse daily_tasks", e);
+          }
+        }
+
         let parsedSchedule = Array.from({ length: 5 }, () => ({
-          task: "",
-          startTime: "",
-          description: "",
-          endTime: "",
-          status: "Pending",
+          task: "", startTime: "", description: "", endTime: "", status: "Pending"
         }));
-
-        if (row.daySchedule) {
-          try {
-            const ds = JSON.parse(row.daySchedule);
-            if (Array.isArray(ds)) parsedDayStatus = ds;
-          } catch (e) { console.warn("Failed to parse daySchedule", e); }
-        }
-
-        if (row.dailyTasks) {
-          try {
-            const dt = JSON.parse(row.dailyTasks);
-            if (Array.isArray(dt)) parsedDailyStatus = dt;
-          } catch (e) { console.warn("Failed to parse dailyTasks", e); }
-        }
-
         if (row.today_schedule) {
           try {
             const ts = JSON.parse(row.today_schedule);
             if (Array.isArray(ts)) parsedSchedule = ts;
-          } catch (e) { console.warn("Failed to parse today_schedule", e); }
+          } catch (e) {
+            console.warn("Failed to parse today_schedule", e);
+          }
         }
 
         setTableData({
@@ -132,8 +143,10 @@ export default function Dashboard() {
         resetForm();
       }
     } catch (err) {
-      console.error(err);
+      console.error("Fetch Error:", err);
       resetForm();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -152,7 +165,6 @@ export default function Dashboard() {
     );
   };
 
-  // Fetch when selected date changes
   useEffect(() => {
     fetchData(selectedDate);
     setIsToday(selectedDate === currentDateStr);
@@ -193,11 +205,8 @@ export default function Dashboard() {
     }
 
     const confirmSave = window.confirm(
-      existingRecord
-        ? "Previous data found for today. Do you want to update it?"
-        : "Save new record for today?"
+      existingRecord ? "Update existing record?" : "Save new record?"
     );
-
     if (!confirmSave) return;
 
     const payload = {
@@ -215,9 +224,8 @@ export default function Dashboard() {
       ipo_net_profit: tableData["IPO's"].netProfit,
       ipo_goal: tableData["IPO's"].goal,
 
-      // ✅ Correct column names matching Google Sheet
-      daySchedule: JSON.stringify(dayStatus),
-      dailyTasks: JSON.stringify(dailyStatus),
+      day_schedule: JSON.stringify(dayStatus),
+      daily_tasks: JSON.stringify(dailyStatus),
       today_schedule: JSON.stringify(scheduleData),
     };
 
@@ -230,50 +238,41 @@ export default function Dashboard() {
       if (existing.length > 0) {
         await fetch(
           `https://sheetdb.io/api/v1/nipv43e33g4tr/date/${encodeURIComponent(selectedDate)}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data: payload }),
-          }
+          { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: payload }) }
         );
-        alert("✅ Record updated successfully!");
       } else {
         await fetch("https://sheetdb.io/api/v1/nipv43e33g4tr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: [payload] }),
         });
-        alert("✅ New record created successfully!");
       }
 
-      fetchData(selectedDate); // Refresh
+      alert("✅ Saved successfully!");
+      fetchData(selectedDate);
     } catch (err) {
       console.error(err);
-      alert("❌ Error saving data. Check console.");
+      alert("❌ Save failed. Check console.");
     }
   };
 
   return (
     <div className="planner">
-      {/* Date Selector */}
       <div className="top-section" style={{ marginBottom: "20px" }}>
         <div>
           <label>Date :</label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          />
+          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
         </div>
         <div>
           <label>Day :</label>
           <input type="text" value={day} readOnly />
         </div>
         {isToday && <small style={{ color: "green" }}>✅ Today - Editable</small>}
-        {!isToday && <small style={{ color: "orange" }}>📅 Viewing Previous Day (Read Only)</small>}
+        {!isToday && <small style={{ color: "orange" }}>📅 Previous Day (Read Only)</small>}
+        {loading && <small style={{ color: "blue" }}> Loading...</small>}
       </div>
 
-      {/* Saving and Investment */}
+      {/* Saving and Investment Table */}
       <h3>Saving and Investment</h3>
       <table>
         <thead>
@@ -281,7 +280,7 @@ export default function Dashboard() {
             <th>Type of Savings</th>
             <th>Invested</th>
             <th>Profit</th>
-            <th>Net Profit</th>
+            <th>today Profit</th>
             <th>Goal</th>
           </tr>
         </thead>
@@ -289,30 +288,10 @@ export default function Dashboard() {
           {savings.map((item) => (
             <tr key={item}>
               <td>{item}</td>
-              <td>
-                <input
-                  value={tableData[item].invested}
-                  onChange={(e) => handleChange(item, "invested", e.target.value)}
-                />
-              </td>
-              <td>
-                <input
-                  value={tableData[item].profit}
-                  onChange={(e) => handleChange(item, "profit", e.target.value)}
-                />
-              </td>
-              <td>
-                <input
-                  value={tableData[item].netProfit}
-                  onChange={(e) => handleChange(item, "netProfit", e.target.value)}
-                />
-              </td>
-              <td>
-                <input
-                  value={tableData[item].goal}
-                  onChange={(e) => handleChange(item, "goal", e.target.value)}
-                />
-              </td>
+              <td><input value={tableData[item].invested} onChange={(e) => handleChange(item, "invested", e.target.value)} disabled={!isToday} /></td>
+              <td><input value={tableData[item].profit} onChange={(e) => handleChange(item, "profit", e.target.value)} disabled={!isToday} /></td>
+              <td><input value={tableData[item].netProfit} onChange={(e) => handleChange(item, "netProfit", e.target.value)} disabled={!isToday} /></td>
+              <td><input value={tableData[item].goal} onChange={(e) => handleChange(item, "goal", e.target.value)} disabled={!isToday} /></td>
             </tr>
           ))}
         </tbody>
@@ -321,13 +300,7 @@ export default function Dashboard() {
       {/* Day Schedule */}
       <h3>Day Schedule</h3>
       <table>
-        <thead>
-          <tr>
-            <th>Task</th>
-            <th>Timings</th>
-            <th>Fulfilled</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Task</th><th>Timings</th><th>Fulfilled</th></tr></thead>
         <tbody>
           {daySchedule.map((item, index) => (
             <tr key={index}>
@@ -336,9 +309,9 @@ export default function Dashboard() {
               <td>
                 <input
                   type="checkbox"
-                  checked={dayStatus[index] || false}
+                  checked={!!dayStatus[index]}
                   onChange={(e) => handleDayCheckbox(index, e.target.checked)}
-                  disabled={!isToday}
+                  disabled={!isToday || loading}
                 />
               </td>
             </tr>
@@ -352,11 +325,7 @@ export default function Dashboard() {
         <thead>
           <tr>
             <th>Task</th>
-            <th>Level 1</th>
-            <th>Level 2</th>
-            <th>Level 3</th>
-            <th>Level 4</th>
-            <th>Level 5</th>
+            <th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Level 4</th><th>Level 5</th>
           </tr>
         </thead>
         <tbody>
@@ -367,11 +336,9 @@ export default function Dashboard() {
                 <td key={level}>
                   <input
                     type="checkbox"
-                    checked={dailyStatus[index]?.[level] || false}
-                    onChange={(e) =>
-                      handleDailyCheckbox(index, level, e.target.checked)
-                    }
-                    disabled={!isToday}
+                    checked={!!dailyStatus[index]?.[level]}
+                    onChange={(e) => handleDailyCheckbox(index, level, e.target.checked)}
+                    disabled={!isToday || loading}
                   />
                 </td>
               ))}
@@ -380,57 +347,23 @@ export default function Dashboard() {
         </tbody>
       </table>
 
-      {/* Today's Schedule */}
+      {/* Today's Schedule Table (unchanged) */}
       <h3>Today's Schedule</h3>
       <table>
         <thead>
           <tr>
-            <th>Task</th>
-            <th>Start Time</th>
-            <th>Description</th>
-            <th>End Time</th>
-            <th>Status</th>
+            <th>Task</th><th>Start Time</th><th>Description</th><th>End Time</th><th>Status</th>
           </tr>
         </thead>
         <tbody>
           {scheduleData.map((row, index) => (
             <tr key={index}>
+              <td><input value={row.task} onChange={(e) => handleScheduleChange(index, "task", e.target.value)} disabled={!isToday} /></td>
+              <td><input type="time" value={row.startTime} onChange={(e) => handleScheduleChange(index, "startTime", e.target.value)} disabled={!isToday} /></td>
+              <td><input value={row.description} onChange={(e) => handleScheduleChange(index, "description", e.target.value)} disabled={!isToday} /></td>
+              <td><input type="time" value={row.endTime} onChange={(e) => handleScheduleChange(index, "endTime", e.target.value)} disabled={!isToday} /></td>
               <td>
-                <input
-                  value={row.task}
-                  onChange={(e) => handleScheduleChange(index, "task", e.target.value)}
-                  disabled={!isToday}
-                />
-              </td>
-              <td>
-                <input
-                  type="time"
-                  value={row.startTime}
-                  onChange={(e) => handleScheduleChange(index, "startTime", e.target.value)}
-                  disabled={!isToday}
-                />
-              </td>
-              <td>
-                <input
-                  value={row.description}
-                  onChange={(e) => handleScheduleChange(index, "description", e.target.value)}
-                  disabled={!isToday}
-                />
-              </td>
-              <td>
-                <input
-                  type="time"
-                  value={row.endTime}
-                  onChange={(e) => handleScheduleChange(index, "endTime", e.target.value)}
-                  disabled={!isToday}
-                />
-              </td>
-              <td>
-                <select
-                  value={row.status}
-                  onChange={(e) => handleScheduleChange(index, "status", e.target.value)}
-                  disabled={!isToday}
-                >
+                <select value={row.status} onChange={(e) => handleScheduleChange(index, "status", e.target.value)} disabled={!isToday}>
                   <option value="Pending">Pending</option>
                   <option value="Completed">Completed</option>
                   <option value="In Progress">In Progress</option>
@@ -441,16 +374,13 @@ export default function Dashboard() {
         </tbody>
       </table>
 
-          <div id="btn2">
-            
       {isToday && (
-        <div style={{ display: "flex", gap: "20px", marginTop: "2px" }}>
-          <button id="btn22" type="button" onClick={update}>
-            Save / Update
+        <div style={{ marginTop: "20px" }}>
+          <button onClick={update} disabled={loading}>
+            {loading ? "Saving..." : "Save / Update"}
           </button>
         </div>
       )}
-      </div>
     </div>
   );
 }
