@@ -373,14 +373,16 @@ export default function Dashboard() {
           ))}
         </tbody>
       </table>
-
+          <div id="btn2">
+          
       {isToday && (
         <div style={{ marginTop: "20px" }}>
-          <button onClick={update} disabled={loading}>
+          <button id="btn22" onClick={update} disabled={loading}>
             {loading ? "Saving..." : "Save / Update"}
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }
