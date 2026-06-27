@@ -285,6 +285,15 @@ export default function Dashboard() {
           <label>Day :</label>
           <input type="text" value={day} readOnly />
         </div>
+        <div>
+          <label>net worth :</label>
+          <input type="text"
+            value={(
+              Number(tableData["Stocks"].goal.replace(/,/g, "")) +
+              Number(tableData["Mutual Funds"].goal.replace(/,/g, "")) +
+              Number(tableData["IPO's"].goal.replace(/,/g, ""))).toLocaleString("en-IN")
+            } readOnly />
+        </div>
 
         {isPastDate(selectedDate) && (
           <small style={{ color: "orange" }}>📅 Past Date (Read Only)</small>
@@ -308,7 +317,7 @@ export default function Dashboard() {
             <th>Invested</th>
             <th>1D returns</th>
             <th>total Returns</th>
-            <th>net worth</th>
+            <th>total profits</th>
           </tr>
         </thead>
         <tbody>
