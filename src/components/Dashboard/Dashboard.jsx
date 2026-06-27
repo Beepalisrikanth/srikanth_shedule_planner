@@ -248,10 +248,10 @@ export default function Dashboard() {
       if (existing.length > 0) {
         await fetch(
           `https://sheetdb.io/api/v1/nipv43e33g4tr/date/${encodeURIComponent(selectedDate)}`,
-          { 
-            method: "PATCH", 
-            headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ data: payload }) 
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: payload })
           }
         );
       } else {
@@ -275,10 +275,10 @@ export default function Dashboard() {
       <div className="top-section" style={{ marginBottom: "20px" }}>
         <div>
           <label>Date :</label>
-          <input 
-            type="date" 
-            value={selectedDate} 
-            onChange={(e) => setSelectedDate(e.target.value)} 
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
           />
         </div>
         <div>
@@ -306,9 +306,9 @@ export default function Dashboard() {
           <tr>
             <th>Type of Savings</th>
             <th>Invested</th>
-            <th>Profit</th>
-            <th>today Profit</th>
-            <th>Goal</th>
+            <th>1D returns</th>
+            <th>total Returns</th>
+            <th>net worth</th>
           </tr>
         </thead>
         <tbody>
@@ -316,31 +316,31 @@ export default function Dashboard() {
             <tr key={item}>
               <td>{item}</td>
               <td>
-                <input 
-                  value={tableData[item].invested} 
-                  onChange={(e) => handleChange(item, "invested", e.target.value)} 
-                  disabled={!isEditable} 
+                <input
+                  value={tableData[item].invested}
+                  onChange={(e) => handleChange(item, "invested", e.target.value)}
+                  disabled={!isEditable}
                 />
               </td>
               <td>
-                <input 
-                  value={tableData[item].profit} 
-                  onChange={(e) => handleChange(item, "profit", e.target.value)} 
-                  disabled={!isEditable} 
+                <input
+                  value={tableData[item].profit}
+                  onChange={(e) => handleChange(item, "profit", e.target.value)}
+                  disabled={!isEditable}
                 />
               </td>
               <td>
-                <input 
-                  value={tableData[item].netProfit} 
-                  onChange={(e) => handleChange(item, "netProfit", e.target.value)} 
-                  disabled={!isEditable} 
+                <input
+                  value={tableData[item].netProfit}
+                  onChange={(e) => handleChange(item, "netProfit", e.target.value)}
+                  disabled={!isEditable}
                 />
               </td>
               <td>
-                <input 
-                  value={tableData[item].goal} 
-                  onChange={(e) => handleChange(item, "goal", e.target.value)} 
-                  disabled={!isEditable} 
+                <input
+                  value={tableData[item].goal}
+                  onChange={(e) => handleChange(item, "goal", e.target.value)}
+                  disabled={!isEditable}
                 />
               </td>
             </tr>
